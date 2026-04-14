@@ -1,674 +1,668 @@
-create database p_blikit;
 
-use p_blinkit;
-
--- Loading Customers tables using sql query
-select * from customers;
-truncate customers;
-
-set global local_infile = 1;
-
-load data local infile 'D:/Data Analytics/Utkarsh_IMT/Projects/Blinkit/Dataset/blinkit_customers.csv'
-into table blinkit_customers
-fields terminated by ',' enclosed by '"'
-lines terminated by '\r\n'         
-ignore 1 lines;
-
--- creating stored procedure for select statement
-
-delimiter $$
-create procedure t_select_dynamic(tbl_name varchar(255))
-begin
-	set @sql = concat('select * from `' , tbl_name, '`;');
-    prepare stmt from @sql;
-    execute stmt;
-    deallocate prepare stmt;
-end $$
-delimiter ;
-
-call t_select_dynamic('blinkit_customers'); 						-- calling the procedure
-
--- creating stored procedure for truncate statement
-drop procedure if exists t_truncate_dynamic;
-
-delimiter $$ 
-create procedure t_truncate_dynamic(tbl_name varchar(255))
-begin 
-	set @sql = concat('truncate `',tbl_name, '`;');
-    prepare stmt from @sql;
-    execute stmt;
-    deallocate prepare stmt;
-end $$
-delimiter ;
-
-call t_truncate_dynamic('blinkit_customers');
-
--- Loading other tables
--- -- orders table
-call t_select_dynamic('blinkit_orders');
-call t_truncate_dynamic('blinkit_orders');
-
-
-load data local infile 'D:/Data Analytics/Utkarsh_IMT/Projects/Blinkit/Dataset/blinkit_orders.csv'
-into table blinkit_orders
-fields terminated by ',' enclosed by '"'
-lines terminated by '\r\n'         
-ignore 1 lines;
-
--- products
-call t_select_dynamic('blinkit_products');
-call t_truncate_dynamic('blinkit_products');
-
-
-load data local infile 'D:/Data Analytics/Utkarsh_IMT/Projects/Blinkit/Dataset/blinkit_products.csv'
-into table blinkit_products
-fields terminated by ',' enclosed by '"'
-lines terminated by '\r\n'         
-ignore 1 lines;
-
--- order items
-call t_select_dynamic('blinkit_order_items');
-call t_truncate_dynamic('blinkit_order_items');
-
-load data local infile 'D:/Data Analytics/Utkarsh_IMT/Projects/Blinkit/Dataset/blinkit_order_items.csv'
-into table blinkit_order_items
-fields terminated by ',' enclosed by '"'
-lines terminated by '\r\n'
-ignore 1 lines;
-
--- inventory
-call t_select_dynamic('blinkit_inventory');
-call t_truncate_dynamic('blinkit_inventory');
-
-load data local infile 'D:/Data Analytics/Utkarsh_IMT/Projects/Blinkit/Dataset/blinkit_inventory.csv'
-into table blinkit_inventory
-fields terminated by ',' enclosed by '"'
-lines terminated by '\r\n'
-ignore 1 lines;
-
--- new inventory
-call t_select_dynamic('blinkit_inventorynew');
-call t_truncate_dynamic('blinkit_inventorynew');
-
-load data local infile 'D:/Data Analytics/Utkarsh_IMT/Projects/Blinkit/Dataset/blinkit_inventoryNew.csv'
-into table blinkit_inventorynew
-fields terminated by ',' enclosed by '"'
-lines terminated by '\r\n'
-ignore 1 lines;
-
--- delivery performance
-call t_select_dynamic('blinkit_delivery_performance');
-call t_truncate_dynamic('blinkit_delivery_performance');
-
-load data local infile 'D:/Data Analytics/Utkarsh_IMT/Projects/Blinkit/Dataset/blinkit_delivery_performance.csv'
-into table blinkit_delivery_performance
-fields terminated by ',' enclosed by '"'
-lines terminated by '\r\n'
-ignore 1 lines;
-
--- feedback
-call t_select_dynamic('blinkit_customer_feedback');
-call t_truncate_dynamic('blinkit_customer_feedback');
-
-load data local infile 'D:/Data Analytics/Utkarsh_IMT/Projects/Blinkit/Dataset/blinkit_customer_feedback.csv'
-into table blinkit_customer_feedback
-fields terminated by ',' enclosed by '"'
-lines terminated by '\r\n'
-ignore 1 lines;
-
-
-/*
-Data Cleanning Steps followed are
-1. changing col name or table name
-2. null values
-3. duplicates
-4. checking data type and data type conversion
-5. text values integrity and  segment integrity
-6. EDA
-*/
- 
-/*        ---------------- Customers - Data Cleaning and EDA ---------------           */
-
--- 1. changing table name
-rename table blinkit_customers to customers;
-
--- 2. checking null values
-select count(*) as null_values 
-from customers 
-where
-customer_id is null 
-or customer_name is null
-or email is null
-or phone is null
-or address is null
-or area is null
-or pincode is null
-or registration_date is null
-or customer_segment is null
-or total_orders is null
-or avg_order_value is null; 
--- no nulls
-
--- 3. checking dupes
-select count(*) as dupe_count from customers
-group by customer_id, customer_name, email, phone, address, area, pincode, registration_date,customer_segment,
-total_orders,avg_order_value
-having dupe_count > 1;
--- no dupes 
-
--- 4. checking data types follwed by data type conversion as per the requirement
-desc customers;
--- registration_date is stored as text
-
--- converting registration date to date data type
-select registration_date                       -- '2024-11-06' → ISO (good format)'
-from customers                                 -- '06-11-2024' or '06/11/24' → needs conversion
-limit 10;                                      -- 'Nov 6, 2024' → also needs conversion
-
-select str_to_date(registration_date, '%Y-%m-%d') as conv_date
-from customers;
-
-update customers
-	set registration_date = str_to_date(registration_date, '%Y-%m-%d');
-
-alter table customers
-modify registration_date date;    
- 
--- 5. checking text values integrity
-select 
-trim(customer_name),
-trim(email),
-trim(phone),
-trim(address),
-trim(area),
-trim(pincode),
-trim(registration_date),
-trim(customer_segment)
-from customers;
-
-update customers
-set 
-customer_name = trim(customer_name),
-email = trim(email),
-phone = trim(phone),
-address = trim(address),
-area = trim(area),
-pincode = trim(pincode),
-registration_date = trim(registration_date),
-customer_segment = trim(customer_segment);
-
--- 6. EDA
-
-select * from customers; #2500 rows
-
-select 	count(distinct customer_id) as unique_id, -- 2500
-		count(distinct customer_name) as unique_name, -- 2491
-        count(distinct email) as unique_email, -- 2500
-        count(distinct phone) unique_phone, -- 2500
-        count(distinct address) unique_address, -- 2500
-		count(distinct area) unqiue_area, -- 315
-        count(distinct pincode) unqiue_pincode, -- 2494
-        count(distinct registration_date) unqiue_rdate, -- 589
-        count(distinct customer_segment) unique_segment, -- 4
-		count(distinct total_orders) unique_orders, -- 20
-        count(distinct avg_order_value) unique_aov -- 2487
-from customers;
-
--- checking area more deeply
-
--- from data area and pincode does not match with address 
--- area and pincode are incorrectly stored
-
-alter table customers
-drop column area, 
-drop column pincode;
-
-select address from customers;
--- need to extract state and address
-
--- keeping cust_seg, total_orders, aov for now, will drop after finding a better replacement
-
--- renaming col name 
-
-select * from customers;
-
-alter table customers
-rename column customer_id to cust_id;
-
-alter table customers
-rename column customer_name to cust_name,
-rename column registration_date to reg_date;
-
-alter table customers 
-rename column customer_segment to cust_segment;
-
-select distinct cust_segment from customers;
--- premium, inactive, regular, new
-
-select min(reg_date), max(reg_date) from customers;
--- 2023 - 03 - 16 to 2024 - 11 - 04
-
-select min(total_orders), max(total_orders) from customers;
--- 1 to 20
-
-select * from customers;
-
-/* 
-insight -> there are 2500 unique customers already marked as premium, inactive, regular, new having registered 
-date between 2023 - 03 - 16 to 2024 - 11 - 04, having total orders ranging from 1 to 20. Cust-segment, total_orders, 
-aov are already engineered cols. These cols are kept for now and will be removed once better replacement is found
-*/
-
-
-/*        ---------------- Orders - Data Cleaning and EDA ---------------           */
-
--- 1. changing table name or col name
-alter table blinkit_order rename to orders;
-
-alter table orders
-rename column customer_id to cust_id,
-rename column promised_delivery_time to scheduled_dl_date_time,
-rename column actual_delivery_time to actual_dl_date_time;
-
--- 2. checking null values
-select *  
-from orders 
-where
-order_id is null 
-or cust_id is null
-or order_date is null
-or scheduled_delivery_date is null
-or actual_delivery_date is null
-or delivery_status is null
-or order_total is null
-or payment_method is null
-or delivery_partner_id is null
-or store_id is null
-or order_time is null
-or scheduled_delivery_time is null
-or actual_delivery_time is null;
--- no null values
-
--- 3. checking dupes
-select count(*) as dupe_count from orders
-group by order_id, cust_id, order_date, scheduled_delivery_date, actual_delivery_date, delivery_status,
-order_total, payment_method, delivery_partner_id, store_id, order_time, scheduled_delivery_time,
-actual_delivery_time
-having dupe_count >1;
--- no dupes
-
--- 4. checking data type and date type conversion if needed
-
-desc orders;
--- order date & time - text
--- scheduled_dl_time - text 
--- actual_dl_time - text
-
-select substring_index(order_date,' ',1) as date,            -- substring_index(str, delimiter,count)
-substring_index(order_date,' ',-1)  as time                  -- 1 : before delimiter, -1: after delimiter
-from orders;
-
-alter table orders add column order_time varchar(60);
-
-start transaction;                                              -- so that transaction can be recalled
-
-update orders
-set order_time = substring_index(order_date,' ',-1),
-order_date = substring_index(order_date,' ',1);
-
-commit;
-
-select substring_index(scheduled_dl_date_time,' ',1) as s_date,   
-substring_index(scheduled_dl_date_time,' ',-1) as s_time,   
-substring_index(actual_dl_date_time,' ',1) as a_date,    
-substring_index(actual_dl_date_time,' ',-1) as a_time
-from orders;
+use yulu;                                              -- use yulu database
+
+select * from yulu.bike_share_yr_0;                    -- check all the data from yulu.bike_share_yr_0
+
+select * from yulu.bike_share_yr_1;                    -- check all the data from yulu.bike_share_yr_1
+
+DESCRIBE yulu.bike_share_yr_0;                         -- check columns and dataype from yulu.bike_share_yr_0
+
+DESCRIBE yulu.bike_share_yr_1;                         -- check columns and dataype from yulu.bike_share_yr_1
+-- OR 
+SHOW COLUMNS FROM yulu.bike_share_yr_0;                -- check columns from yulu.bike_share_yr_0
+SHOW COLUMNS FROM yulu.bike_share_yr_1;                -- check columns from yulu.bike_share_yr_1
+
+-- creating a stored procedure :
+DROP PROCEDURE IF EXISTS yulushare_2021;               -- Dropping if any previous stored procedure of similar name created.
+SHOW PROCEDURE STATUS LIKE 'yulushare_2021';           -- checking the status of stored procedure
+
+
+SELECT COUNT(*) AS null_count                          -- Check for NULL values in yulu.bike_share_yr_1
+FROM yulu.bike_share_yr_1
+WHERE dteday IS NULL
+   OR season IS NULL
+   OR yr IS NULL
+   OR mnth IS NULL
+   OR hr IS NULL
+   OR holiday IS NULL
+   OR weekday IS NULL
+   OR workingday IS NULL
+   OR weathersit IS NULL
+   OR temp IS NULL
+   OR atemp IS NULL
+   OR hum IS NULL
+   OR windspeed IS NULL
+   OR rider_type IS NULL
+   OR riders IS NULL;
+    
+CREATE TABLE yulu.cost (                              -- creating a new cost Table
+    yr INT PRIMARY KEY NOT NULL,                      -- primary key and Not null are the constraints
+    price DECIMAL(10, 2) NOT NULL,            
+    COGS DECIMAL(10, 2) NOT NULL);
+    
+ /*Constraints are rules applied to table columns 
+ to enforce data integrity and consistency.*/
+
+insert into cost(yr,price, COGS)                      -- insert the values to new table named "cost"
+values (0,3.99,1.24),                                 -- COGS stands for cost of Goods sold.
+    	(1,4.99,1.56);
         
-alter table orders add column scheduled_delivery_time varchar(60),
-add column actual_dlivery_time varchar (60);
+select * from yulu.cost;                              -- check the details of the cost table after inserting values to it.
 
-start transaction;
+DESCRIBE yulu.cost;                                   -- check datatypes of cost table
 
-update orders
-set scheduled_delivery_time = substring_index(scheduled_dl_date_time,' ',-1),
-scheduled_dl_date_time = substring_index(scheduled_dl_date_time,' ',1) ,
-actual_dlivery_time = substring_index(actual_dl_date_time,' ',-1),
-actual_dl_date_time = substring_index(actual_dl_date_time,' ',1);
 
-commit;
 
-alter table orders
-rename column scheduled_dl_date_time to scheduled_delivery_date,
-rename column actual_dl_date_time to actual_delivery_date;
+/* DELIMITER changes the statement delimiter in SQL
+ to define complex commands like triggers or procedures.*/
+ 
+ 
+ 
+DELIMITER $$                                        -- creating stored procedure to avoid repetitive task.
+create procedure yulushare_2021 ()                  -- Delimiter supported by MYSQL workbench &&,//,$$
+BEGIN
+SELECT * FROM yulu.bike_share_yr_0;
+END$$
+DELIMITER ;                                         -- END with default Delimiter(;) to avoid confusion.
 
-select str_to_date(order_date,'%Y-%m-%d'),                        -- str_to_date(date,'format_of_date_present')
-str_to_date(scheduled_delivery_date,'%Y-%m-%d'),                  -- date_format(date,'format_of_date_output')
-str_to_date(actual_delivery_date,'%Y-%m-%d')
-from orders;     
+call yulushare_2021()                               -- check new created stored procedure by calling it.
 
-start transaction;
+DELIMITER //                                        -- using // Delimiter to avoid confusion
+CREATE PROCEDURE yulushare_2022 ()
+BEGIN
+    SELECT * FROM yulu.bike_share_yr_1;
+END//
+DELIMITER ;                                         -- complete stored procedure syntax with default Delimiter(;)
 
-update orders
-set order_date = str_to_date(order_date,'%Y-%m-%d'),
-scheduled_delivery_date = str_to_date(scheduled_delivery_date,'%Y-%m-%d'),
-actual_delivery_date = str_to_date(actual_delivery_date,'%Y-%m-%d');
+call yulushare_2022();                              -- check new created stored procedure by calling it.
 
-commit;
-                                                             
-alter table orders
-modify column order_date date,
-modify column scheduled_delivery_date date,
-modify column actual_delivery_date date; 
-			
-alter table orders
-modify column order_time time,
-modify column scheduled_delivery_time time,
-modify column actual_dlivery_time time;
 
-alter table orders
-rename column actual_dlivery_time to actual_delivery_time;
+DELIMITER &&                                        -- creating stored procedure for cost table. 
+CREATE PROCEDURE cost ()
+BEGIN
+    SELECT * FROM yulu.cost;
+END&&                                               -- using $$ delimiter to avoid confusion
+DELIMITER ;                                         -- Ending with default(;) Delimiter
+call cost();                                        --  calling stored procedure cost.
 
--- 5. checking text values integrity
-select trim(delivery_status),
-trim(payment_method) from orders;
+-- creating a Backup Table with DELETE Trigger :
 
-update orders
-set delivery_status = trim(delivery_status),
-payment_method = trim(payment_method);
+create table backup_yulushare_2021 
+AS select * from yulu.bike_share_yr_0 where 1=0; 
 
--- 6. EDA
 
-select count(*) from orders; -- 5000 records
+     /* condition 1=0 will make a copy 
+     of the original Table, without any values
+	 with same structure and data types*/
 
-select count(distinct order_id), -- 5000
-	count(distinct cust_id), -- 2172
-	count(distinct delivery_status), -- 3
-	count(distinct payment_method), -- 4
-	count(distinct delivery_partner_id), -- 5000
-	count(distinct store_id)  -- 5000
-	from orders;
+create table backup_yulushare_2022 AS 
+select * from yulu.bike_share_yr_1 where 1=0;
 
-select distinct delivery_status
-from orders;
--- on time, slightly delayed, significantly delayed
+-- Creating a Delete Trigger for yulu.bike_share_yr_0
 
-select distinct payment_method
-from orders;
--- cash, upi, card, wallet
+DELIMITER $$ 
+CREATE TRIGGER before_delete_bike_share_year_0              -- we have two options Create/Replace to start syntax of Trigger.
+BEFORE DELETE ON yulu.bike_share_yr_0                       -- This ensure before Delete event occurs if saves data in backup Table.
+FOR EACH ROW                                                -- stored procedure are of two types rows and columns
+BEGIN                                                       -- we are using Row wise stored Procedure
+    INSERT INTO backup_yulushare_2021
+    VALUES (OLD.yr, OLD.workingday, OLD.windspeed, OLD.weekday, OLD.weathersit, 
+    OLD.temp, OLD.season, OLD.mnth, OLD.hum, OLD.hr, OLD.holiday, OLD.dteday, OLD.atemp);
+    
+END $$                                                      -- using && Delimiter to avoid confusion
+DELIMITER ;                                                 -- using Default(;) delimiter to complete syntax.
 
-select min(scheduled_delivery_date), max(actual_delivery_date) from orders;
--- 2023 - 03 - 16 5o 2024 -- 11 - 04
 
-select * from orders;
+-- Trigger for bike_share_year_1
 
-/*
-insight -> there are 5000 records under orders, and we have uniques cols as - order_id 5000, cust_id 2172, 
-delivery status 3 (already marked as on time, slightly delayed and significantly delayed), 
-payment_method 4 (cash, upi, wallet, card), delivery partner id 50000, and store id 5000.
-Blinkit has scheduled delivery date ranging from 2023 - 03 - 16 to actual delivery date as 2024 - 11 - 04.
-*/
+DELIMITER $$                                                 -- using $$ Delimiter to avoid confusion.
+CREATE TRIGGER before_delete_bike_share_year_1               -- Deleted data stored before Delete event occurs
+BEFORE DELETE ON yulu.bike_share_yr_1
+FOR EACH ROW                                                 -- Row wise Trigger
+BEGIN
+    INSERT INTO backup_yulushare_2022                        -- Before Delete event oocurs, deleted data will be stored in backup_yulu_share_2022
+    VALUES (OLD.weekday, OLD.workingday, OLD.weathersit, 
+    OLD.temp, OLD.atemp, OLD.hum, OLD.windspeed, OLD.rider_type, OLD.riders);
+END$$                                                        -- using $$ delimiter to complete syntax.
+											
 
-/*        ---------------- Products - Data Cleaning and EDA ---------------           */
+-- Data Cleaning steps :
 
--- 1. checking table name
-alter table blinkit_products rename to products;
+-- checking for duplicates 
 
--- 2. checking null values
-select * from products 
-where 
-product_id is null
-or product_name is null
-or category is null
-or brand is null
-or price is null
-or mrp is null
-or margin_percentage is null
-or shelf_life_days is null
-or min_stock_level is null
-or max_stock_level is null;
--- no nulls
+SELECT yr, workingday, windspeed, weekday, weathersit, temp, season, riders,
+ rider_type, mnth, hum, hr, holiday, dteday, atemp,
+    COUNT(*) AS count
+FROM bike_share_yr_0
+GROUP BY yr, workingday, windspeed, weekday, weathersit, temp, season, riders, 
+rider_type, mnth, hum, hr, holiday, dteday, atemp
+HAVING COUNT(*) > 1;                                        
+-- Results shows There are NO duplicates.
 
--- 3. checking dupe count
+SHOW COLUMNS FROM yulu.bike_share_yr_0;                       -- check the columns names of the data
 
-select count(*) as dupe_count from products
-group by product_id, product_name, category, brand, price, mrp, margin_percentage, shelf_life_days, 
-min_stock_level, max_stock_level
-having dupe_count >1;
--- no dupes
+-- check for missing values.
 
--- 4. checking data types
-desc products;
+select sum( Case when yr IS NULL then 1 else 0 END) AS missing_year,
+	   sum( Case when workingday IS NULL then 1 else 0 END )  AS missing_workingday,
+       sum( Case when windspeed IS NULL then 1 else 0 END) as missing_windspeed,
+       sum( Case when weekday IS NULL then 1 else 0 END) AS missing_weekday,
+       sum( Case when weathersit IS NULL then 1 else 0 end) AS missing_weathersit,
+       sum( Case when temp IS NULL then 1 else 0 END ) as missing_temp,
+       sum( Case when season IS NULL then 1 else 0 END ) AS missing_season,
+       sum( Case when riders IS NULL then 1 else 0 END ) AS missing_riders,
+       sum( Case when rider_type IS NULL then 1 else 0 END) AS missing_ridertype,
+       sum( Case when mnth IS NULL then 1 ELSE 0 END) AS missing_mnth,
+       sum( Case when hum IS Null then 1 else 0 END ) AS missing_hum,
+       sum( Case when hr IS NULL then 1 else 0 END ) AS missinghr,
+       sum( Case when holiday IS NULL then 1 else 0 END) AS mssing_holiday,
+       sum( Case when dteday IS NULL then 1 else 0 END ) AS missing_dteday,
+       sum( Case when atemp IS NULL then 1 else 0 END) AS missing_atemp from yulu.bike_share_yr_0;
 
--- 5. checking text values integrity
-select trim(product_name), trim(brand) from products;
+-- Results shows There are No Missing Values.
 
-update products 
-set
-product_name = trim(product_name),
-brand = trim(brand);
+-- Standarization Convert dteday from 'YYYY-MM-DD' text to DATE type
 
--- 6. EDA
+call yulushare_2021()                                       -- calling stored procedure to validate data.
+SET SQL_SAFE_UPDATES = 0;                                   -- disable safe mode so that we can make changes.
 
-select count(*) from products;
--- 268
+ALTER TABLE bike_share_yr_0 ADD COLUMN dteday_date DATE;    -- Adding new DATE column 
 
-select count(distinct product_id),  -- 268
-count(distinct product_name), -- 51
-count(distinct category), -- 11
-count(distinct brand) -- 267
-from products;
+UPDATE bike_share_yr_0 -- updating it
+SET dteday_date = STR_TO_DATE(dteday, '%d-%m-%Y');          -- converting into standarize date format of year-month-day
 
-select distinct product_name from products;
+ALTER TABLE bike_share_yr_0 DROP COLUMN dteday;             -- removing old date column
 
-select distinct category from products;
+CALL yulushare_2021();                                      -- calling stored procedure to validate Data.
 
-select distinct brand from products;
+Alter table  bike_share_yr_0 
+change column dteday_date dteday DATE;                      -- Rename the column
 
-select * from products 
-where brand in 
-(select brand
-from products
-group by brand
-having count(brand) >1);
 
-select * from products;
+-- Normalize Text Datatype column "Rider_Type" by converting all rider_type values to lowercase
+call yulushare_2021()                                       -- call stored procedure to validate normalized data.
 
-/* 
-insight -> there are no null values and dupe records, currently in the products blinkit has unique 268 product 
-id,11 unique categories, 51 unique products, and 267 unique brands. Only Jha Group breand has 2 products 
-listed (Nuts and Mango Drink), else all other brands has only 1 product listed.
-*/
 
-/*        ---------------- Order_items - Data Cleaning and EDA ---------------           */
+-- Convert all rider_type values to lowercase
+UPDATE bike_share_yr_0
+SET rider_type = LOWER(rider_type);                         -- Updating values to lowercase
 
--- 1. renaming table name
-alter table blinkit_order_items rename to order_items;
 
--- 2. checking null values
-select * from order_items
-where 
-order_id is null
-or product_id is null
-or quantity is null
-or unit_price is null;
--- no null
 
--- 3. checking dupes
-select count(*) as dupe_count
-from order_items
-group by order_id , product_id, quantity, unit_price
-having dupe_count > 1;
--- no dupes
+-- TRIM WHITESPACES
+update yulu.bike_share_yr_0                                -- remove any extra space using Trim Function.
+set rider_type=trim(rider_type);
 
--- 4. checking data types and conversions
-desc order_items;
+-- TRIM is a function in SQL that removes leading and trailing spaces or specified characters from a string.
 
--- 5. checking text values integrity
--- no text col
 
--- 6. EDA
-select count(distinct order_id),   -- 5000
-count(distinct product_id), -- 268
-count(distinct quantity),    -- 3 
-count(distinct unit_price)   -- 267
-from order_items;
+SET sql_safe_updates = 1;                                  -- Enable safe mode again 
 
-select distinct quantity from order_items;
--- 1,2,3
 
-select min(unit_price), max(unit_price) from order_items;
--- 12.32 to 995.98
+-- Cleaning data for yulu_bike_share_yr_1, same steps to be followed.
 
-/*
-insight -> there are 5000 unique order_id in order_items, 268 unique product_id, 3 distinct quantity (1,2,3), 
-and unit price varies greatly ranging from around 12 to around 1k. 
-*/
 
-select * from order_items; 
+SHOW COLUMNS FROM yulu.bike_share_yr_1;                     -- check columns for yulu.bike_share_yr_1
 
-/*        ---------------- Invetory - Data Cleaning and EDA ---------------                   */
 
--- 1. changing table name
-alter table blinkit_inventory rename to inventory;
+describe yulu.bike_share_yr_1;                              -- check columns and data type for yulu.bike_share_yr_1
 
--- 2. checking null values
-select * from inventory 
-where 
-product_id is null
-or date is null
-or stock_received is null
-or damaged_stock is null;
--- no null
 
--- 3. check duplicates
-select count(*) as dupe_count from inventory
-group by product_id, date, stock_received, damaged_stock
-having dupe_count > 1;
--- no null
+-- check for missing values.
 
--- 4. checking data type
-desc inventory;
--- date - text
+SELECT *
+FROM yulu.bike_share_yr_1
+WHERE yr IS NULL OR workingday IS NULL OR windspeed IS NULL OR weekday IS NULL OR weathersit IS NULL
+   OR temp IS NULL OR season IS NULL OR riders IS NULL OR rider_type IS NULL OR mnth IS NULL
+   OR hum IS NULL OR hr IS NULL OR holiday IS NULL OR dteday IS NULL OR atemp IS NULL;
+       
+-- Result shows that there are no missing value from yulu.bike_share_yr_2
 
-select str_to_date(date,'%d-%m-%Y') from inventory;              -- default date format provided -- y - m - d
 
-start transaction;
+-- checking for duplicates 
 
-update inventory 
+SELECT yr, workingday, windspeed,weekday, weathersit,temp, season, riders, rider_type,
+ mnth, hum, hr, holiday, dteday, atemp,
+COUNT(*) AS count FROM bike_share_yr_1
+GROUP BY yr, workingday, windspeed, weekday, weathersit, temp,
+ season, riders, rider_type, mnth, hum, hr, holiday, dteday, atemp
+HAVING COUNT(*) > 1;
+
+-- Results shows that there are no duplicates.
+
+describe  yulu.bike_share_yr_1      
+/* after checking data type 
+we found date column is in text,
+we will standardize convert into DATE datatype */
+
+
+set sql_safe_updates=0;                                  -- Disable safe mode to make changes in the Table.
+ 
+-- Convert DD-MM-YYYY to YYYY-MM-DD AS YYY-MM-DD is the standard date format for mysqlworkbench.
+
+UPDATE yulu.bike_share_yr_1                              -- updating Date column to standard form.
+SET dteday = Str_to_date(dteday, '%d-%m-%Y');            -- using str_to_date to standarize date format
+
+/*STR_TO_DATE function in MySQL converts a string representation
+ of a date into a DATE data type, according to a specified format.*/
+
+ALTER TABLE yulu.bike_share_yr_1                         -- changing datatype of column dteday from text to DATE          
+MODIFY dteday DATE;
+
+describe  yulu.bike_share_yr_1 ;                         --  validate datatype change is made for dteday column
+call yulushare_2022                                      --  calling stored procedure to check format of date column
+
+update yulu.bike_share_yr_1                              --  remove whitespaces and standarize column by converting it to lowercase
+set rider_type= lower(trim(rider_type));
+
+SELECT DISTINCT rider_type                               --  Validate the data 
+FROM yulu.bike_share_yr_1;
+
+SET sql_safe_updates = 1;                                -- Enable safe mode again 
+
+-- Step 1 :-- Merging data 
+
+CREATE TEMPORARY TABLE yulu.BikeShare AS                  -- creating Temporary Table 
+SELECT 
+    season, yr, mnth, hr, holiday, weekday, workingday, weathersit, temp, atemp, hum, windspeed, 
+    rider_type, riders, dteday
+FROM yulu.bike_share_yr_0
+UNION ALL                                                 -- using union ALL since there are no duplicates.
+SELECT                                                    -- if there are duplicates we use Union to elimate such values
+    season, yr, mnth, hr, holiday, weekday, 
+    workingday, weathersit, temp, atemp, 
+    hum, windspeed, rider_type,
+    riders, dteday
+FROM yulu.bike_share_yr_1;
+select * from yulu.BikeShare;                            -- Temporary Table is Made.
+
+
+-- Step 2: Join the combined data with the cost table and make a permanent table for Data Analysis
+
+CREATE TABLE yulu.yuluData AS                              -- creating a permanent Table for Data Analysis
+SELECT 
+    b.season, b.yr, b.mnth, b.hr,
+    b.holiday, b.weekday, b.workingday,
+    b.weathersit, b.temp, b.atemp, b.hum,
+    b.windspeed, b.rider_type, b.riders,
+    b.dteday, c.price, c.COGS
+FROM yulu.BikeShare b                                      -- We take Alias b for Yulu.Bikeshare
+LEFT JOIN yulu.cost c ON b.yr = c.yr;                      -- left join with cost table (Alias C)
+ 
+select * from yuluData;                                    -- Validate the data 
+
+ALTER TABLE yuluData ADD Id INT AUTO_INCREMENT PRIMARY KEY; -- Adding Primary Key column ID, since it has no Pk. so we added ID as PK.
+
+Describe yuluData                                            -- Vaidate Data
+
+-- Adding new column of Revenue and profit in the table yuluData.
+
+Alter table yuluData                                       -- Alter Table YuluData to ADD 2 new columns
+Add column revenue decimal(10,2),                          -- Add revenue column with decimal DataType                   
+Add Column profit Decimal(10,2);                           -- Add Profit Colum with Decimal DataType
+
+-- Update revenue and profit columns with Values.
+
+set sql_safe_updates=0                                     -- Disable safe mode to edit the data
+
+update yulu.yuluData                                       -- update the new column made with values
 set 
-date = str_to_date(date,'%d-%m-%Y');
-
-commit;
-
-alter table inventory modify column date date;
-
-desc inventory;
-
--- 5. checking text values
--- no text values
-
--- 6. EDA
-select count(*) from inventory; -- 75172 records
-
-select count(distinct product_id) from inventory; -- 268 unique products 
-
-select min(date), max(date) from inventory; -- 2023-03-17 to 2024-11-05
-
-select min(stock_received),    -- 0
-max(stock_received),           -- 4
-min(damaged_stock),            -- 0
-max(damaged_stock)             -- 2
-from inventory;
-
-select * from inventory;
-
-/* 
-insight -> 268 product id are restocked between 2023-03-17 to 2024-11-05 and min stock that is received is 0 to
-max stock received is 4. similary, min damaged stock received is 0 and max damaged stock received is 2. We have 
-75172 data entries for the same.
-*/
+revenue= price*riders,                                     -- Revenue = price multiply by quantity(riders)
+profit= revenue-COGS;                                      -- Profit = Revenue minus cost of Goods sold.
 
 
-/*        ---------------- Delivery Performace - Data Cleaning and EDA ---------------           */
+DELIMITER &&                                               -- using && Delimiter to Avoid Confusion 
+CREATE PROCEDURE yulu ()                                   -- stored procedure for yuluData table. 
+BEGIN
+    SELECT * FROM yulu.yuluData;
+END &&                                                     -- ending procedure syntax with &&
+DELIMITER ;                                                -- completing syntax with default(;) Delimiter
 
--- 1. changing table name
-alter table blinkit_delivery_performance rename to Delivery_performance;
+call yulu;                                                 -- calling stored Procedure Yulu
 
-alter table Delivery_performance
-rename column promised_time to scheduled_time;
+Create table backup_yulus AS 
+select * from yulu.yuluData where 1=0;                     -- Creating Backup Table for YuluData 
+     /* condition WHERE 1=0 will make a copy 
+     of the original Table, without any values
+	 with same structure and data types*/
 
--- 2. checking null values
-select * from delivery_performance 
-where 
-order_id is null
-or delivery_partner_id is null
-or scheduled_time is null
-or actual_time is null
-or delivery_time_minutes is null
-or distance_km is null
-or delivery_status is null
-or reasons_if_delayed is null;
+DELIMITER $$                                                -- creating Before Delete Trigger to store delete data in backup table.
+CREATE TRIGGER before_delete_yuluData                       -- creating a Trigger for final Data that is YuluData
+BEFORE DELETE ON yulu.yuluData                              -- using before out of two options that is before and After
+FOR EACH ROW                                                -- using for Row Wise
+BEGIN 
+    INSERT INTO backup_yulus                                -- Before Delete event occurs deleted valued will be stored in backup_yulus.
+    VALUES (OLD.season, OLD.yr, OLD.mnth, 
+    OLD.hr, OLD.holiday, 
+    OLD.weekday, OLD.workingday, OLD.weathersit,
+    OLD.hum, OLD.temp, OLD.windspeed, OLD.dteday, 
+    OLD.atemp,OLD.rider_type, OLD.riders, OLD.price,
+    OLD.COGS,OLD.revenue, OLD.profit);
+END $$                                                       -- END with && Delimiter
+DELIMITER ;                                                  -- completing with Default(;) Delimiter
 
-select reasons_if_delayed from delivery_performance
-where trim(reasons_if_delayed) = "";
--- there are empty spaces which are not stored as null
+call yulu;                                                   -- calling stored procedure Yulu
 
-start transaction;
+-- DATA IS CLEANED.
 
-update delivery_performance
-set reasons_if_delayed = null
-where trim(reasons_if_delayed) = "";
-
-commit;
-
-select count(*) from delivery_performance
-where reasons_if_delayed is null;
--- 1905
-
--- updating null values as other in delivery_performace
-
-start transaction;
-
-update delivery_performance 
-set reasons_if_delayed = "other"
-where reasons_if_delayed is null;
-
-commit;
-
--- 3. check duplicates
-select * from delivery_performance;
-
-select count(*) as dupe_count from delivery_performance
-group by order_id, delivery_partner_id, scheduled_time, actual_time, delivery_time_minutes, distance_km,
-delivery_status, reasons_if_delayed
-having dupe_count > 1;
--- 2 dupes for 7 rows
-
--- 4. checking data type
-desc delivery_performance;
--- scheduled time - text
--- actual time text
--- delivery_status text
--- reasons if dealyed text
+-- Analysis :
 
 
-/*        ---------------- Feedback - Data Cleaning and EDA ---------------                      */
+-- Question 1  find out Total Revenue, Total profit, Average profit, Average Revenue for each hour of the day ?
 
--- 1. changing table name
-alter table blinkit_customer_Feedback rename to Feedback;
+-- solution :
 
--- 2. checking null values
-select count(*) 
-where feedback_id is null or trim(feedback_id) = ""
-or order_id is null 
-or customer_id is null 
-or rating is null 
-or feedback_text is null or trim(feedback_text) = ""
-or feedback_category is null or trim(feedback_category) = ""
-or sentiment is null or trim(sentiment) = ""
-or feedback_date is null or trim(feedback_date) = ""
-from feedback;
+SELECT hr AS Hour, sum(revenue) AS Total_Revenue , sum(profit) AS Total_profit,
+AVG (revenue) AS Average_revenue, avg(profit) as average_profit  from yulu.yuludata
+group by hr
+order by Total_profit Desc;
 
-use p_blinkit;
-select * from feedback;
+/*The most profitable hours of day are between 17:00 (5pm) and 19:00 (7pm) 
+The Least profitable hours are early in the morning between 3:00am and 5:00 am 
+since the demand is low */
 
+
+
+
+
+-- Question number 2 What is the total revenue and profit and average revenue and average profit for each season?
+
+SELECT DISTINCT
+       season,
+       SUM(revenue) OVER (PARTITION BY season) AS Total_Revenue,
+       SUM(profit) OVER (PARTITION BY season) AS Total_Profit,
+       AVG(revenue) OVER (PARTITION BY season) AS Average_Revenue,
+       AVG(profit) OVER (PARTITION BY season) AS Average_Profit
+FROM yulu.yuludata
+ORDER BY Total_Profit;
+
+
+/*Season 1 (Winter) is characterized by the lowest figures, suggesting it might be a less favorable or less active period.
+  Season 2 (spring) shows a significant improvement and suggests a better-performing period.
+  Season 3 (Summer) represents the peak performance with the highest revenue and profit.
+  Season 4 (fall)   sees a decline from the peak but still performs well compared to Season 1.
+  There is spike in profits during summer and early fall*/
+
+
+
+-- Question number 3  How does Average revenue ,Average profit ,Total revenue and Total profit differ between rider type?
+
+WITH totals AS (
+    SELECT SUM(revenue) AS Total_Revenue,
+           SUM(profit) AS Total_Profit
+    FROM yuluData
+) ,
+rider_stats AS (
+    SELECT rider_type,
+           AVG(revenue) AS Average_Revenue,
+           AVG(profit) AS Average_Profit,
+           SUM(revenue) AS Total_Revenue,
+           SUM(profit) AS Total_Profit
+    FROM yuluData
+    GROUP BY rider_type
+) 
+SELECT rs.rider_type,
+       rs.Average_Revenue,
+       rs.Average_Profit,
+       rs.Total_Revenue,
+       rs.Total_Profit,
+       ROUND((rs.Total_Revenue / t.Total_Revenue) * 100, 2) AS Revenue_Percentage,
+       ROUND((rs.Total_Profit / t.Total_Profit) * 100, 2) AS Profit_Percentage
+FROM rider_stats AS rs
+CROSS JOIN totals AS t
+ORDER BY rs.rider_type;
+
+/*The Registered rider_type dominates the market with the share of 81.36%,
+whereas casual rider_type only have 18.64 percentage,
+Target Market of our customers prefers Registered Riders than casuals*/
+
+
+-- Question number 4 How does the total revenue and profit vary by month, yearly?
+
+call yulu;
+
+CREATE VIEW monthly_revenue_profit AS
+SELECT yr, mnth, SUM(revenue) AS Total_Revenue, SUM(profit) AS Total_Profit
+FROM yuluData
+GROUP BY yr, mnth order by Total_profit;
+select * from yulu.monthly_revenue_profit order by Total_profit desc;
+
+
+/* Year 2021 shows a consistent increase  in Revenue and profit throughout year 
+with highest in the month of July and August
+Year 2022 shows highest profit in the month of september followed by August and july. */
+
+
+
+
+-- Question number 5  What is the total revenue and profit based on different weather situations?
+
+-- weathersit values:
+
+-- 1: Clear, Few clouds, Partly cloudy
+-- 2: Mist + Cloudy, Mist + Broken clouds
+-- 3: Light Snow, Light Rain, Thunderstorm, Scattered clouds
+-- 4   heavy rainfall
+ call yulu;
+
+ select 
+ weathersit, sum(revenue) Total_Revenue,sum(profit) Total_profit 
+ from yulu.yuluData group by weathersit;
+
+/* weathersit1 (sunny) has highest Total Revenue
+   weathersit2 (cloudy) generates revenue less than sunny condition
+   weathersit3 (mist) generates less renvue 
+   weathersit4 (Heavy Rain/Snow) sharp drop in revenue */
+
+
+
+-- Question number 6   What are the top 5 most profitable hours of the day?
+
+SELECT hr AS hour, SUM(profit) AS total_profit
+FROM yuluData
+group by hr 
+order by total_profit desc 
+limit 5;
+
+/* 17:00 (5 PM) is the most profitable hour
+   18:00 (6PM) is the second most profitable hour
+   8:00pm is the third most profitable hour
+   16:00(4pm) is the fourth most profitable hour
+   19:00(7pm) is the fifth most profitable hour
+   The peak time is between 4pm to 8 pm */
+   
+   
+   
+
+-- Question 7  How does revenue and profit differ on working days versus non-working days?
+
+SELECT workingday AS Working_day,SUM(revenue) AS Total_Revenue, SUM(profit) AS Total_Profit,
+    ROUND(SUM(revenue) * 100.0 / SUM(SUM(revenue)) OVER (), 2) AS Revenue_Percentage,
+    ROUND(SUM(profit) * 100.0 / SUM(SUM(profit)) OVER (), 2) AS Profit_Percentage
+FROM yuluData
+GROUP BY workingday 
+ORDER BY Total_Profit DESC;
+
+/* Working Day=1 contributed 69.68% of Total Revenue and 69.69% of Total Profit, 
+Non Working Day=0 contributed 30.31% of Total Revenue and 30.31% of Total Profit.*/
+
+
+--  Question 8 How different weather conditions impact revenue and profit.
+SELECT weathersit,
+       ROUND(AVG(temp), 2) AS Avg_Temperature,
+       ROUND(AVG(atemp), 2) AS Avg_Feels_Like_Temp,
+       ROUND(AVG(hum), 2) AS Avg_Humidity,
+       ROUND(AVG(windspeed), 2) AS Avg_Windspeed,
+       SUM(revenue) AS Total_Revenue,
+       SUM(profit) AS Total_Profit
+FROM yuluData
+GROUP BY weathersit
+ORDER BY Total_Profit DESC;
+
+
+/*Weathersit1, with moderate temperature, low humidity, and low windspeed,
+ is associated with the highest revenue and profit,It indicates the most favorable condition for the business.
+Hot or very humid conditions may deter business performance.*/
+
+
+ -- Rider Type Revenue and Profit Comparison in Percentage
+
+
+-- Question 9 what is the Yearly profit comparsion 
+
+WITH yearwise_profit AS (
+    SELECT yr,SUM(profit) AS Total_Profit, SUM(revenue) AS Total_Revenue FROM yuluData GROUP BY yr
+)
+SELECT yr,Total_Profit,Total_Revenue,
+LAG(Total_Profit) OVER (ORDER BY yr) AS Prev_Year_Profit,
+LAG(Total_Revenue) OVER (ORDER BY yr) AS Prev_Year_Revenue,
+ROUND((Total_Profit - LAG(Total_Profit) OVER (ORDER BY yr)) / LAG(Total_Profit) OVER (ORDER BY yr) * 100, 2) 
+AS Profit_Increase_Percentage,
+ROUND((Total_Revenue - LAG(Total_Revenue) OVER (ORDER BY yr)) / LAG(Total_Revenue) OVER (ORDER BY yr) * 100, 2)
+AS Revenue_Increase_Percentage
+FROM yearwise_profit;
+
+-- Question 10 what will be Average Profit and Revenue based on Windspeed Buckets
+SELECT 
+  CASE 
+    WHEN windspeed BETWEEN 0 AND 0.2 THEN 'Low'
+    WHEN windspeed BETWEEN 0.2 AND 0.5 THEN 'Moderate'
+    WHEN windspeed BETWEEN 0.5 AND 0.8 THEN 'High'
+    ELSE 'Very High'
+  END AS Windspeed_Level,
+  COUNT(*) AS Number_of_Records,
+  AVG(profit) AS Average_Profit,
+  SUM(profit) AS Total_Profit,
+  AVG(revenue) AS Average_Revenue
+FROM 
+  yuluData
+GROUP BY 
+  Windspeed_Level
+ORDER BY 
+   Windspeed_Level ;
+   
+  /*Low Windspeed: The highest number of records and total profit, but the average profit is moderate (380.86). 
+    Low wind conditions are favorable but not extremely profitable per ride.
+    Moderate Windspeed: Fewer records but a much higher average profit (663.00), 
+    showing that moderate wind conditions are optimal for profitability.
+    High Windspeed: Low number of records and moderate profit levels (549.79), 
+    indicating some resilience in high winds but not a major factor.
+    Very High Windspeed: Fewest records and the lowest profit per ride (250.59),
+    showing a significant drop in profitability when winds are very strong.*/ 
+   
+   
+   
+   
+  call yulu
+
+-- Question 11 what are the insights about Average Profit and Revenue based on Temperature Buckets?
+SELECT 
+  CASE 
+    WHEN temp BETWEEN 0 AND 0.2 THEN 'Very Cold'
+    WHEN temp BETWEEN 0.2 AND 0.4 THEN 'Cold'
+    WHEN temp BETWEEN 0.4 AND 0.6 THEN 'Mild'
+    WHEN temp BETWEEN 0.6 AND 0.8 THEN 'Warm'
+    ELSE 'Hot'
+  END AS Temperature_Level,
+  COUNT(*) AS Number_of_Records,
+  AVG(profit) AS Average_Profit,
+  SUM(profit) AS Total_Profit,
+  AVG(revenue) AS Average_Revenue
+FROM 
+  yuluData
+GROUP BY 
+  Temperature_Level
+ORDER BY 
+  Temperature_Level;
+
+
+/*Cold: Has the second-highest number of records, but the average profit is relatively low (283.53),
+ indicating that colder days are less profitable overall.
+Hot: Fewer records, but with the highest average profit (751.77), 
+suggesting that hot days are more profitable per ride.
+Mild: This condition has a large number of records, with a moderate average profit (448.65), 
+making it a stable contributor to revenue.
+Very Cold: Lowest average profit (143.63), 
+indicating a significant reduction in profitability during very cold weather.
+Warm: The highest total profit (6136006.00) due to both a high number of records and moderate profit levels,
+ making it the most significant overall contributor.*/
+
+SELECT 
+    CASE 
+        WHEN atemp BETWEEN 0.0 AND 0.2 THEN 'Very Cold'
+        WHEN atemp BETWEEN 0.2 AND 0.4 THEN 'Cold'
+        WHEN atemp BETWEEN 0.4 AND 0.6 THEN 'Mild'
+        WHEN atemp BETWEEN 0.6 AND 0.8 THEN 'Warm'
+        WHEN atemp BETWEEN 0.8 AND 1.0 THEN 'Hot'
+        ELSE 'Unknown'
+    END AS Atemp_Level,
+    COUNT(*) AS Number_of_Records,
+    AVG(profit) AS Average_Profit,
+    SUM(profit) AS Total_Profit,
+    AVG(revenue) AS Average_Revenue
+FROM yuluData
+GROUP BY Atemp_Level
+ORDER BY Atemp_Level;
+
+/*
+Warm and Mild temperatures (0.25 - 0.75 range) seem to have the highest total profits, with Warm being the most profitable.
+Cold and Very Cold temperatures correspond to lower profits.
+Hot temperatures have high average profits per ride but occur less frequently, likely due to fewer records available.
+This suggests that moderate (Warm, Mild) conditions drive better business outcomes,
+ possibly because extreme temperatures (Hot or Very Cold) might discourage riding activity.*/
+
+SELECT 
+    Hum, 
+    AVG(Profit) AS Average_Profit, 
+    SUM(Profit) AS Total_Profit, 
+    AVG(Revenue) AS Average_Revenue,
+    AVG(COGS) AS Average_COGS,
+    AVG(Price) AS Average_Price,
+    COUNT(*) AS Number_of_Records
+FROM 
+    YuluData
+GROUP BY 
+    Hum;
+
+
+/*Profit:
+Total_Profit in yr 0: 4,938,541.37 whereas Total_Profit in yr 1: 10,200,134.16
+Profit Increase Percentage: 106.54%
+ This substantial increase shows a doubling of profit from the previous year.
+Revenue:
+Total_Revenue in yr 1: 10,227,384.24 Whereas Total_Revenue in yr 0: 4,959,980.97
+Revenue Increase Percentage: 106.20%
+High Humidity Impact: From the data, higher humidity levels (e.g., 0.88, 0.86, etc.) seem to be associated with lower average profits, 
+lower total profits, and lower average revenues compared to lower humidity levels (e.g., 0.38, 0.44, etc.). 
+This could indicate that customers might prefer renting bikes in moderate to low humidity conditions, 
+leading to higher profits during these periods.
+The growth rate observed (over 100% increase) sets a high benchmark for future performance*
+/
+
+-- Recommendation
+
+/*Insights for Improvement:
+1. Weather Analysis: Target promotions and discounts on Weathersit 3 & 4 days to minimize 
+   the impact of poor weather on revenue.
+   
+2. Rider Retention: Focus on converting casual riders to registered riders to maximize customer lifetime value,
+   by Offering discounts, loyalty rewards, and premium features for registered users could help convert more casual users.
+   
+3. Hourly Promotions: Offer incentives during low-profit hours, such as late nights, to increase ridership.
+
+4. Peak Hours Optimization: Enhanced availability of bikes, 
+   dynamic pricing, or even partnerships with local businesses for after-work commuting could be explored.
+   
+5. Given the spike in profits during summer and early fall, launching seasonal campaigns could boost revenue. 
+   Targeted promotions for tourists or special discounts during high-traffic months
+   like July and September could further enhance profitability.
+   
+6. Focus on Mild to Warm Weather with moderate less humdity: Given that warm and mild conditions are consistently profitable,
+   targeting marketing efforts and availability during these conditions could boost overall performance and adapt to Extreme Conditions,
+   consider offering promotions or discounts during extreme cold or windy conditions to incentivize ridership,
+   as these conditions lead to lower profits also optimize Resource Allocation based on the weather forecast, 
+   we can adjust staff and bike availability, reducing them in low-profit conditions
+   (e.g., very cold or high winds) and maximizing them during profitable conditions*/
+   
+
+use yulu;
