@@ -1,10 +1,10 @@
 # Yulu
 SQL (EDA and Insights) and Power BI (Measures and Reporting)
 
-Dashboard Link = https://shorturl.at/2HtvD
 
+Overview: 
 
-Overview: This project leverages SQL for sophisticated data analysis and Power BI for interactive and dynamic dashboard visualizations. The primary goals are to optimize data integrity, automate processes through the use of stored procedures, and boost operational efficiency by minimizing manual and repetitive tasks. Additionally, a delete trigger has been implemented in the MySQL database to safeguard against data loss.
+This project leverages SQL for sophisticated data analysis and Power BI for interactive and dynamic dashboard visualizations. The primary goals are to optimize data integrity, automate processes through the use of stored procedures, and boost operational efficiency by minimizing manual and repetitive tasks. Additionally, a delete trigger has been implemented in the MySQL database to safeguard against data loss.
 
 Goals:
 
